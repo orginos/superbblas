@@ -69,7 +69,7 @@ OBJECT_LIB := $(patsubst %.cpp,%.o,$(SOURCE_LIB))
 
 $(LIB_SOURCE_STEM): $(SOURCE)
 ifeq ($(TARGET), cpu)
-	$(CXX) -E $(INCLUDE) ${CXXFLAGS} -DSUPERBBLAS_CREATING_LIB ../include/superbblas.h | $(PYTHON) tools/ctemplate > $@
+	$(CXX) -E $(INCLUDE) ${CXXFLAGS} -DSUPERBBLAS_CREATING_LIB ../include/superbblas.h | $(PYTHON) tools/ctemplate | sed 's/\\n//g' > $@
 endif
 ifeq ($(TARGET), cuda)
 	${NVCC} -E ${MPISBFLAG} ${NVCCFLAGS} -Xcompiler '${CXXFLAGS} ${MPIINCFLAGS}' -DSUPERBBLAS_CREATING_LIB ../include/superbblas.h | $(PYTHON) tools/ctemplate > $@
@@ -81,13 +81,13 @@ endif
 $(SOURCE_LIB): $(LIB_SOURCE_STEM).split
 
 $(LIB_SOURCE_STEM).split: $(LIB_SOURCE_STEM)
-	split -d -n l/10 -a 1 $< $(LIB_SOURCE_STEM)_
+	python3 -c 'import pathlib,re; src=pathlib.Path("$<").read_text().splitlines(); src=[re.sub(r"\\n","",line) for line in src]; chunks=10; size=(len(src)+chunks-1)//chunks; prefix="$(LIB_SOURCE_STEM)_"; [pathlib.Path("{}{}".format(prefix,i)).write_text("\\n".join(src[i*size:(i+1)*size]) + ("\\n" if src[i*size:(i+1)*size] else "")) for i in range(chunks)]'
 	for i in $(LIB_SOURCE_STEM)_? ; do \
 		( \
 			echo "// This file is generated automatically. Please, do not modify"; \
 			echo "#include \"superbblas.h\""; \
 			echo "using namespace superbblas; using namespace detail;";  \
-			cat $$i \
+			sed 's/\\n//g' $$i \
 		) > $${i}.cpp; \
 	done
 	touch $(LIB_SOURCE_STEM).split
